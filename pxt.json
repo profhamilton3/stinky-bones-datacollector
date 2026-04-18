@@ -1,0 +1,24 @@
+{
+    "name": "stinky-bones-datacollector",
+    "description": "Stinky Bones Data Collector — receives radio telemetry from the XGO dog and logs it to the micro:bit v2 datalogger. Download data via USB for analysis. Pairs with stinky-bones-xgo. Educational Python project for THE Hamilton Essentials Foundation.",
+    "dependencies": {
+        "core": "*",
+        "radio": "*",
+        "datalogger": "*"
+    },
+    "files": [
+        "main.py",
+        "README.md"
+    ],
+    "testFiles": [
+        "test.ts"
+    ],
+    "targetVersions": {
+        "target": "7.0.51",
+        "targetId": "microbit"
+    },
+    "supportedTargets": [
+        "microbit"
+    ],
+    "preferredEditor": "pyprj"
+}
