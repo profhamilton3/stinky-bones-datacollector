@@ -8,13 +8,14 @@
     },
     "files": [
         "main.py",
-        "README.md"
+        "README.md",
+        "main.ts"
     ],
     "testFiles": [
         "test.ts"
     ],
     "targetVersions": {
-        "target": "7.0.51",
+        "target": "8.0.21",
         "targetId": "microbit"
     },
     "supportedTargets": [
