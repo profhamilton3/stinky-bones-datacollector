@@ -3,12 +3,8 @@
 //  ============================================================
 //  Hardware: micro:bit v2 (stationary — placed near the arena)
 // 
-//  This microbit listens for 16-byte telemetry buffers that the
-//  XGO dog broadcasts every 3 seconds. It logs each sample to
-//  the micro:bit v2 built-in datalogger. After a session, plug
-//  this microbit into a computer via USB and open the MY_DATA
-//  drive to download the CSV file for analysis in spreadsheets
-//  or Python/pandas.
+//  Logs persist across power loss. Data is NOT cleared on
+//  restart. Only a deliberate A+B press clears the log.
 // 
 //  ── LOGGED COLUMNS ────────────────────────────────────────
 //  mag_x, mag_y, mag_z  — magnetic force (µT) on each axis
@@ -17,8 +13,10 @@
 //  dog_state            — 0=IDLE 1=SEARCHING 2=CELEBRATING 3=AVOIDING
 // 
 //  ── BUTTON CONTROLS ───────────────────────────────────────
-//  Button A  — display total sample count on LED matrix
-//  Button B  — clear the log (confirmation blink first)
+//  Button A        — show total sample count
+//  Button B        — show bone-spike count (samples where dog
+//                    was in CELEBRATING state = bone found)
+//  Button A + B    — clear the log and reset all counters
 //  ============================================================
 //  ────────────────────────────────────────────────────────────
 //  CONSTANTS
@@ -27,16 +25,23 @@ let RADIO_GROUP = 3
 //  must match stinky-bones-xgo
 //  ────────────────────────────────────────────────────────────
 //  STATE
+//  Note: these in-memory counters reset on power loss, but the
+//  logged data in flash persists. Use Button A/B to re-check
+//  counts from the current power-on session only.
 //  ────────────────────────────────────────────────────────────
 let sample_count = 0
-//  running total of samples received
+//  total telemetry packets received this session
+let spike_count = 0
+//  packets where dog_state == 2 (CELEBRATING = bone found)
 //  ────────────────────────────────────────────────────────────
 //  HARDWARE INITIALISATION
 //  ────────────────────────────────────────────────────────────
 radio.setGroup(RADIO_GROUP)
-//  Configure column headers — these become the CSV headers when
-//  the data file is downloaded from the MY_DATA USB drive
-datalogger.setColumnTitles("mag_x", "mag_y", "mag_z", "accel_x", "accel_y", "accel_z", "sonar_cm", "dog_state")
+//  NOTE: datalogger.set_column_titles() is intentionally omitted.
+//  Calling it on every boot re-initialises the log and erases
+//  previously stored data. Column names are already embedded in
+//  each row via create_cv(), so the CSV downloads correctly
+//  without calling set_column_titles() first.
 //  Startup: scroll "LOG" to show collector is ready
 basic.showString("LOG")
 basic.pause(500)
@@ -74,6 +79,12 @@ radio.onReceivedBuffer(function on_radio_buffer(buf: Buffer) {
         dog_state = buf.getNumber(NumberFormat.Int16LE, 14)
         datalogger.log(datalogger.createCV("mag_x", mag_x), datalogger.createCV("mag_y", mag_y), datalogger.createCV("mag_z", mag_z), datalogger.createCV("accel_x", accel_x), datalogger.createCV("accel_y", accel_y), datalogger.createCV("accel_z", accel_z), datalogger.createCV("sonar_cm", sonar_cm), datalogger.createCV("dog_state", dog_state))
         sample_count += 1
+        //  A sample with dog_state == 2 means the dog is celebrating
+        //  a bone find — count these as magnetometer spikes
+        if (dog_state == 2) {
+            spike_count += 1
+        }
+        
         //  Flash the top-row LED position matching dog state
         //  so you can see at a glance what the dog is doing
         led.plot(dog_state % 5, 0)
@@ -85,20 +96,30 @@ radio.onReceivedBuffer(function on_radio_buffer(buf: Buffer) {
 //  ────────────────────────────────────────────────────────────
 //  BUTTON CONTROLS
 //  ────────────────────────────────────────────────────────────
-//  Button A — show how many samples have been collected
+//  Button A — show total sample count this session
 input.onButtonPressed(Button.A, function on_button_a() {
     basic.showNumber(sample_count)
     basic.pause(1200)
     basic.clearScreen()
 })
-//  Button B — clear the log (useful between runs)
+//  Button B — show bone-spike count (dog_state == 2 samples)
 input.onButtonPressed(Button.B, function on_button_b() {
+    basic.showIcon(IconNames.Diamond)
+    basic.pause(400)
+    basic.showNumber(spike_count)
+    basic.pause(1200)
+    basic.clearScreen()
+})
+//  Button A + B — clear the log (deliberate two-button action
+//  prevents accidental wipe; data survives power loss until here)
+input.onButtonPressed(Button.AB, function on_button_ab() {
     
-    //  Blink to confirm before clearing
+    //  Show warning icon, pause so user can release if accidental
     basic.showIcon(IconNames.No)
-    basic.pause(600)
+    basic.pause(1000)
     datalogger.deleteLog()
     sample_count = 0
+    spike_count = 0
     basic.showString("CLR")
     basic.pause(600)
     basic.clearScreen()
